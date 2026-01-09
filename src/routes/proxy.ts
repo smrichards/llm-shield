@@ -95,7 +95,7 @@ proxyRoutes.post(
         const secretTypes = secretsResult.matches.map((m) => m.type);
         const secretTypesStr = secretTypes.join(",");
 
-        // Block action - return 422 error
+        // Block action - return 400 error
         if (config.secrets_detection.action === "block") {
           // Set headers before returning error
           c.header("X-PasteGuard-Secrets-Detected", "true");

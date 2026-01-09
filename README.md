@@ -62,7 +62,7 @@ Additional entity types can be enabled: `US_SSN`, `US_PASSPORT`, `CRYPTO`, `NRP`
 | Bearer tokens        | `Bearer ...` (20+ char tokens)                                                                            |
 
 Secrets detection runs **before** PII detection. Three actions available:
-- **block** (default): Returns HTTP 422, request never reaches LLM
+- **block** (default): Returns HTTP 400, request never reaches LLM
 - **redact**: Replaces secrets with placeholders, unredacts in response (reversible)
 - **route_local**: Routes to local LLM (route mode only)
 
@@ -213,7 +213,7 @@ secrets_detection:
   log_detected_types: true # Log types (never logs content)
 ```
 
-- **block** (default): Returns HTTP 422 error, request never reaches LLM
+- **block** (default): Returns HTTP 400 error, request never reaches LLM
 - **redact**: Replaces secrets with placeholders, unredacts in response (reversible, like PII masking)
 - **route_local**: Routes to local provider when secrets detected (requires route mode)
 
