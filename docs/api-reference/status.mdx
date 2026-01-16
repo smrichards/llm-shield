@@ -72,7 +72,9 @@ curl http://localhost:3000/info
   "description": "Privacy proxy for LLMs",
   "mode": "mask",
   "providers": {
-    "upstream": { "type": "openai" }
+    "openai": {
+      "base_url": "https://api.openai.com/v1"
+    }
   },
   "pii_detection": {
     "languages": ["en"],
@@ -100,4 +102,4 @@ When language validation is available, `languages` becomes an object:
 }
 ```
 
-In route mode, `routing` and `providers.local` are also included.
+In route mode, `local` provider info is also included.

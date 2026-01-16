@@ -1,4 +1,4 @@
-import type { LocalProvider, UpstreamProvider } from "../config";
+import type { LocalProviderConfig, OpenAIProviderConfig } from "../config";
 import type { MessageContent } from "../utils/content";
 
 /**
@@ -49,13 +49,13 @@ export type LLMResult =
       isStreaming: true;
       response: ReadableStream<Uint8Array>;
       model: string;
-      provider: "upstream" | "local";
+      provider: "openai" | "local";
     }
   | {
       isStreaming: false;
       response: ChatCompletionResponse;
       model: string;
-      provider: "upstream" | "local";
+      provider: "openai" | "local";
     };
 
 /**
@@ -79,17 +79,19 @@ export class LLMClient {
   private baseUrl: string;
   private apiKey?: string;
   private providerType: "openai" | "ollama";
-  private providerName: "upstream" | "local";
+  private providerName: "openai" | "local";
   private defaultModel?: string;
 
   constructor(
-    provider: UpstreamProvider | LocalProvider,
-    providerName: "upstream" | "local",
+    provider: OpenAIProviderConfig | LocalProviderConfig,
+    providerName: "openai" | "local",
     defaultModel?: string,
   ) {
     this.baseUrl = provider.base_url.replace(/\/$/, "");
     this.apiKey = provider.api_key;
-    this.providerType = provider.type;
+    // Configured providers (openai) always use openai protocol
+    // Local providers specify their type (ollama or openai-compatible)
+    this.providerType = "type" in provider ? provider.type : "openai";
     this.providerName = providerName;
     this.defaultModel = defaultModel;
   }
@@ -97,10 +99,10 @@ export class LLMClient {
   /**
    * Sends a chat completion request
    * @param request The chat completion request
-   * @param authHeader Optional Authorization header from client (forwarded for upstream)
+   * @param authHeader Optional Authorization header from client (forwarded for openai provider)
    */
   async chatCompletion(request: ChatCompletionRequest, authHeader?: string): Promise<LLMResult> {
-    // Local uses configured model, upstream uses request model
+    // Local uses configured model, openai uses request model
     const model = this.defaultModel || request.model;
     const isStreaming = request.stream ?? false;
 
@@ -188,7 +190,7 @@ export class LLMClient {
     }
   }
 
-  getInfo(): { name: "upstream" | "local"; type: "openai" | "ollama"; baseUrl: string } {
+  getInfo(): { name: "openai" | "local"; type: "openai" | "ollama"; baseUrl: string } {
     return {
       name: this.providerName,
       type: this.providerType,

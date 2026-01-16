@@ -64,7 +64,7 @@ function createErrorLogData(
   return {
     timestamp: new Date().toISOString(),
     mode: decision?.mode ?? config.mode,
-    provider: decision?.provider ?? "upstream",
+    provider: decision?.provider ?? "openai",
     model: body.model || "unknown",
     piiDetected: decision?.piiResult.hasPII ?? false,
     entities: decision
@@ -82,16 +82,6 @@ function createErrorLogData(
     errorMessage,
   };
 }
-
-proxyRoutes.get("/models", (c) => {
-  const { upstream } = getRouter().getProvidersInfo();
-
-  return proxy(`${upstream.baseUrl}/models`, {
-    headers: {
-      Authorization: c.req.header("Authorization"),
-    },
-  });
-});
 
 /**
  * POST /v1/chat/completions - OpenAI-compatible chat completion endpoint
@@ -144,7 +134,7 @@ proxyRoutes.post(
             {
               timestamp: new Date().toISOString(),
               mode: config.mode,
-              provider: "upstream", // Note: Request never reached provider
+              provider: "openai", // Note: Request never reached provider
               model: body.model || "unknown",
               piiDetected: false,
               entities: [],
@@ -357,7 +347,7 @@ async function handleCompletion(
 ) {
   const client = router.getClient(decision.provider);
   const maskingConfig = router.getMaskingConfig();
-  const authHeader = decision.provider === "upstream" ? c.req.header("Authorization") : undefined;
+  const authHeader = decision.provider === "openai" ? c.req.header("Authorization") : undefined;
 
   // Prepare request and masked content for logging
   let request: ChatCompletionRequest = body;
@@ -608,3 +598,19 @@ function formatMessagesForLog(messages: ChatMessage[]): string {
     })
     .join("\n");
 }
+
+/**
+ * Wildcard proxy - forwards all other /v1/* requests to the configured provider
+ * Supports: /models, /embeddings, /audio/*, /images/*, /files/*, etc.
+ * Must be defined AFTER specific routes to avoid matching them first
+ */
+proxyRoutes.all("/*", (c) => {
+  const { openai } = getRouter().getProvidersInfo();
+  const path = c.req.path.replace(/^\/openai\/v1/, "");
+
+  return proxy(`${openai.baseUrl}${path}`, {
+    headers: {
+      Authorization: c.req.header("Authorization"),
+    },
+  });
+});

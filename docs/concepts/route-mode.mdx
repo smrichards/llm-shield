@@ -15,8 +15,8 @@ Route mode sends requests containing PII to a local LLM. Requests without PII go
 
     PII stays on your network.
   </Card>
-  <Card title="Request without PII" icon="cloud">
-    Routed to **Your Provider** (OpenAI, Azure, etc.)
+  <Card title="Request without PII" icon="server">
+    Routed to **Configured Provider** (OpenAI, Azure, self-hosted, etc.)
 
     Full provider performance.
   </Card>
@@ -34,67 +34,56 @@ Route mode sends requests containing PII to a local LLM. Requests without PII go
 mode: route
 
 providers:
-  upstream:
-    type: openai
+  openai:
     base_url: https://api.openai.com/v1
-  local:
-    type: ollama
-    base_url: http://localhost:11434
-    model: llama3.2
 
-routing:
-  default: upstream
-  on_pii_detected: local
+local:
+  type: ollama
+  base_url: http://localhost:11434
+  model: llama3.2
 ```
 
-### Routing Options
-
-| Option | Description |
-|--------|-------------|
-| `default` | Provider for requests without PII |
-| `on_pii_detected` | Provider for requests with PII |
+In route mode:
+- **No PII detected** → Request goes to configured provider (openai)
+- **PII detected** → Request goes to local provider
 
 ## Local Provider Setup
 
 ### Ollama
 
 ```yaml
-providers:
-  local:
-    type: ollama
-    base_url: http://localhost:11434
-    model: llama3.2
+local:
+  type: ollama
+  base_url: http://localhost:11434
+  model: llama3.2
 ```
 
 ### vLLM
 
 ```yaml
-providers:
-  local:
-    type: openai
-    base_url: http://localhost:8000/v1
-    model: meta-llama/Llama-2-7b-chat-hf
+local:
+  type: openai
+  base_url: http://localhost:8000/v1
+  model: meta-llama/Llama-2-7b-chat-hf
 ```
 
 ### llama.cpp
 
 ```yaml
-providers:
-  local:
-    type: openai
-    base_url: http://localhost:8080/v1
-    model: local
+local:
+  type: openai
+  base_url: http://localhost:8080/v1
+  model: local
 ```
 
 ### LocalAI
 
 ```yaml
-providers:
-  local:
-    type: openai
-    base_url: http://localhost:8080/v1
-    model: your-model-name
-    api_key: ${LOCAL_API_KEY}  # if required
+local:
+  type: openai
+  base_url: http://localhost:8080/v1
+  model: your-model-name
+  api_key: ${LOCAL_API_KEY}  # if required
 ```
 
 ## Response Headers
@@ -110,11 +99,11 @@ X-PasteGuard-PII-Detected: true
 X-PasteGuard-Language: en
 ```
 
-When routed to your provider:
+When routed to configured provider:
 
 ```
 X-PasteGuard-Mode: route
-X-PasteGuard-Provider: upstream
+X-PasteGuard-Provider: openai
 X-PasteGuard-PII-Detected: false
 X-PasteGuard-Language: en
 ```

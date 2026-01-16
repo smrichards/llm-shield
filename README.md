@@ -66,7 +66,7 @@ LLM responds: "Dear [[PERSON_1]], Following up on our discussion..."
 You receive:  "Dear Dr. Sarah Chen, Following up on our discussion..."
 ```
 
-PasteGuard sits between your app and the LLM provider. It's OpenAI-compatible — just change the base URL.
+PasteGuard sits between your app and your provider. It's OpenAI-compatible — just change the base URL.
 
 ## Quick Start
 

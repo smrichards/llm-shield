@@ -6,7 +6,7 @@ export interface RequestLog {
   id?: number;
   timestamp: string;
   mode: "route" | "mask";
-  provider: "upstream" | "local";
+  provider: "openai" | "local";
   model: string;
   pii_detected: boolean;
   entities: string;
@@ -32,7 +32,7 @@ export interface Stats {
   total_requests: number;
   pii_requests: number;
   pii_percentage: number;
-  upstream_requests: number;
+  openai_requests: number;
   local_requests: number;
   avg_scan_time_ms: number;
   total_tokens: number;
@@ -170,8 +170,8 @@ export class Logger {
       .get() as { count: number };
 
     // Upstream vs Local
-    const upstreamResult = this.db
-      .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'upstream'`)
+    const openaiResult = this.db
+      .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'openai'`)
       .get() as { count: number };
     const localResult = this.db
       .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'local'`)
@@ -206,7 +206,7 @@ export class Logger {
       total_requests: total,
       pii_requests: pii,
       pii_percentage: total > 0 ? Math.round((pii / total) * 100 * 10) / 10 : 0,
-      upstream_requests: upstreamResult.count,
+      openai_requests: openaiResult.count,
       local_requests: localResult.count,
       avg_scan_time_ms: Math.round(scanTimeResult.avg || 0),
       total_tokens: tokensResult.total,
@@ -282,7 +282,7 @@ export function getLogger(): Logger {
 export interface RequestLogData {
   timestamp: string;
   mode: "route" | "mask";
-  provider: "upstream" | "local";
+  provider: "openai" | "local";
   model: string;
   piiDetected: boolean;
   entities: string[];

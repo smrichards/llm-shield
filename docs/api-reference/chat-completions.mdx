@@ -5,11 +5,15 @@ description: POST /openai/v1/chat/completions
 
 # Chat Completions
 
-Generate chat completions. Identical to OpenAI's endpoint.
+Generate chat completions with automatic PII and secrets protection.
 
 ```
 POST /openai/v1/chat/completions
 ```
+
+<Note>
+This is the only endpoint that receives PII detection and masking. All other OpenAI endpoints (`/models`, `/embeddings`, `/files`, etc.) are proxied directly to OpenAI without modification.
+</Note>
 
 ## Request
 
@@ -112,7 +116,7 @@ PasteGuard adds headers to indicate PII and secrets handling:
 | Header | Description |
 |--------|-------------|
 | `X-PasteGuard-Mode` | Current mode (`mask` or `route`) |
-| `X-PasteGuard-Provider` | Provider used (`upstream` or `local`) |
+| `X-PasteGuard-Provider` | Provider used (`openai` or `local`) |
 | `X-PasteGuard-PII-Detected` | `true` if PII was found |
 | `X-PasteGuard-PII-Masked` | `true` if PII was masked (mask mode only) |
 | `X-PasteGuard-Language` | Detected language code |

@@ -1,6 +1,6 @@
 # PasteGuard
 
-OpenAI-compatible proxy with two privacy modes: route to local LLM or mask PII for upstream.
+OpenAI-compatible proxy with two privacy modes: route to local LLM or mask PII for configured provider.
 
 ## Tech Stack
 
@@ -19,7 +19,7 @@ src/
 ├── index.ts                 # Hono server entry
 ├── config.ts                # YAML config + Zod validation
 ├── routes/
-│   ├── proxy.ts             # POST /openai/v1/chat/completions
+│   ├── proxy.ts             # /openai/v1/* (chat completions + wildcard proxy)
 │   ├── dashboard.tsx        # Dashboard routes + API
 │   ├── health.ts            # GET /health
 │   └── info.ts              # GET /info
@@ -42,8 +42,8 @@ Tests are colocated (`*.test.ts`).
 
 Two modes configured in `config.yaml`:
 
-- **Route**: Routes PII-containing requests to local LLM (requires `local` provider + `routing` config)
-- **Mask**: Masks PII before upstream, unmasks response (no local provider needed)
+- **Route**: Routes PII-containing requests to local LLM (requires `local` provider config)
+- **Mask**: Masks PII before sending to configured provider, unmasks response (no local provider needed)
 
 See @config.example.yaml for full configuration.
 

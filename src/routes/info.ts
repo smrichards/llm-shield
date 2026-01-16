@@ -19,8 +19,8 @@ infoRoutes.get("/info", (c) => {
     description: "Privacy proxy for LLMs",
     mode: config.mode,
     providers: {
-      upstream: {
-        type: providers.upstream.type,
+      openai: {
+        base_url: providers.openai.baseUrl,
       },
     },
     pii_detection: {
@@ -37,16 +37,11 @@ infoRoutes.get("/info", (c) => {
     },
   };
 
-  if (config.mode === "route" && config.routing) {
-    info.routing = {
-      default: config.routing.default,
-      on_pii_detected: config.routing.on_pii_detected,
+  if (config.mode === "route" && providers.local) {
+    info.local = {
+      type: providers.local.type,
+      base_url: providers.local.baseUrl,
     };
-    if (providers.local) {
-      (info.providers as Record<string, unknown>).local = {
-        type: providers.local.type,
-      };
-    }
   }
 
   if (config.mode === "mask") {

@@ -5,7 +5,7 @@ description: Replace PII with placeholders before sending to your provider
 
 # Mask Mode
 
-Mask mode replaces PII with placeholders before sending to your LLM provider. The response is automatically unmasked before returning to you.
+Mask mode replaces PII with placeholders before sending to your configured provider. The response is automatically unmasked before returning to you.
 
 ## How It Works
 
@@ -30,7 +30,7 @@ Mask mode replaces PII with placeholders before sending to your LLM provider. Th
 ## When to Use
 
 - Simple setup without local infrastructure
-- Want to use external LLM providers while protecting PII
+- Want to use any OpenAI-compatible provider while protecting PII
 
 ## Configuration
 
@@ -38,8 +38,7 @@ Mask mode replaces PII with placeholders before sending to your LLM provider. Th
 mode: mask
 
 providers:
-  upstream:
-    type: openai
+  openai:
     base_url: https://api.openai.com/v1
 ```
 
@@ -62,7 +61,7 @@ Mask mode sets these headers on responses:
 
 ```
 X-PasteGuard-Mode: mask
-X-PasteGuard-Provider: upstream
+X-PasteGuard-Provider: openai
 X-PasteGuard-PII-Detected: true
 X-PasteGuard-PII-Masked: true
 X-PasteGuard-Language: en

@@ -49,7 +49,6 @@
       "group": "API Reference",
       "pages": [
         "api-reference/chat-completions",
-        "api-reference/models",
         "api-reference/status",
         "api-reference/dashboard-api"
       ]

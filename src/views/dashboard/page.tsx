@@ -253,9 +253,9 @@ const StatsGrid: FC = () => (
 		<StatCard label="Avg PII Scan" valueId="avg-scan" accent="teal" />
 		<StatCard label="Requests/Hour" valueId="requests-hour" />
 		<StatCard
-			id="upstream-card"
-			label="Upstream"
-			valueId="upstream-requests"
+			id="openai-card"
+			label="OpenAI"
+			valueId="openai-requests"
 			accent="info"
 			routeOnly
 		/>
@@ -454,15 +454,15 @@ async function fetchStats() {
     }
 
     if (data.mode === 'route') {
-      document.getElementById('upstream-requests').textContent = data.upstream_requests.toLocaleString();
+      document.getElementById('openai-requests').textContent = data.openai_requests.toLocaleString();
       document.getElementById('local-requests').textContent = data.local_requests.toLocaleString();
 
-      const total = data.upstream_requests + data.local_requests;
-      const upstreamPct = total > 0 ? Math.round((data.upstream_requests / total) * 100) : 50;
-      const localPct = 100 - upstreamPct;
+      const total = data.openai_requests + data.local_requests;
+      const openaiPct = total > 0 ? Math.round((data.openai_requests / total) * 100) : 50;
+      const localPct = 100 - openaiPct;
 
       document.getElementById('provider-split').innerHTML =
-        '<div class="flex items-center justify-center font-mono text-[0.7rem] font-medium text-white bg-info min-w-[48px] transition-all" style="width:' + Math.max(upstreamPct, 10) + '%">' + upstreamPct + '%</div>' +
+        '<div class="flex items-center justify-center font-mono text-[0.7rem] font-medium text-white bg-info min-w-[48px] transition-all" style="width:' + Math.max(openaiPct, 10) + '%">' + openaiPct + '%</div>' +
         '<div class="flex items-center justify-center font-mono text-[0.7rem] font-medium text-white bg-success min-w-[48px] transition-all" style="width:' + Math.max(localPct, 10) + '%">' + localPct + '%</div>';
     }
 
@@ -592,7 +592,7 @@ async function fetchLogs() {
           '<td class="text-sm px-4 py-3 border-b border-border-subtle align-middle">' + statusBadge + '</td>' +
           '<td class="route-only text-sm px-4 py-3 border-b border-border-subtle align-middle">' +
             '<span class="inline-flex items-center px-2 py-1 rounded-sm font-mono text-[0.6rem] font-medium uppercase tracking-wide ' +
-              (log.provider === 'upstream' ? 'bg-info/10 text-info' : 'bg-success/10 text-success') + '">' + log.provider + '</span>' +
+              (log.provider === 'openai' ? 'bg-info/10 text-info' : 'bg-success/10 text-success') + '">' + log.provider + '</span>' +
           '</td>' +
           '<td class="font-mono text-[0.7rem] text-text-secondary px-4 py-3 border-b border-border-subtle align-middle">' + log.model + '</td>' +
           '<td class="font-mono text-[0.65rem] font-medium px-4 py-3 border-b border-border-subtle align-middle">' + langDisplay + '</td>' +

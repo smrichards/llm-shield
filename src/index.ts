@@ -159,18 +159,18 @@ function printStartupBanner(config: ReturnType<typeof getConfig>, host: string, 
     config.mode === "route"
       ? `
 Routing:
-  Default: ${config.routing?.default || "upstream"}
-  On PII:  ${config.routing?.on_pii_detected || "local"}
+  No PII:  openai (configured)
+  On PII:  local
 
 Providers:
-  Upstream: ${config.providers.upstream.type}
-  Local:    ${config.providers.local?.type || "not configured"} → ${config.providers.local?.model || "n/a"}`
+  OpenAI: ${config.providers.openai.base_url}
+  Local:  ${config.local?.type || "not configured"} → ${config.local?.model || "n/a"}`
       : `
 Masking:
   Markers: ${config.masking.show_markers ? "enabled" : "disabled"}
 
 Provider:
-  Upstream: ${config.providers.upstream.type}`;
+  OpenAI: ${config.providers.openai.base_url}`;
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗

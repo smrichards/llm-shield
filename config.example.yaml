@@ -3,8 +3,8 @@
 
 # Privacy mode: "mask" or "route"
 #
-# mask:  Masks PII before sending to upstream, unmasks in response (no local LLM needed)
-# route: Routes requests to local LLM when PII detected (requires local provider)
+# mask:  Masks PII before sending to provider, unmasks in response
+# route: Routes PII requests to local LLM, non-PII to configured provider
 mode: mask
 
 # Server settings
@@ -12,33 +12,27 @@ server:
   port: 3000
   host: "0.0.0.0"
 
-# LLM Provider configuration
+# Providers - OpenAI-compatible API endpoints
+# Can be cloud (OpenAI, Azure) or self-hosted (vLLM, LiteLLM proxy, etc.)
 providers:
-  # Upstream provider (required for both modes)
-  # The proxy forwards your client's Authorization header to the upstream provider
-  # You can optionally set api_key here as a fallback
-  upstream:
-    type: openai
+  # OpenAI-compatible endpoint (required)
+  # The proxy forwards your client's Authorization header
+  openai:
     base_url: https://api.openai.com/v1
     # api_key: ${OPENAI_API_KEY}  # Optional fallback if client doesn't send auth header
 
-  # Local provider (only for route mode - can be removed if using mask mode)
-  # Supports: ollama, openai (for OpenAI-compatible servers like LocalAI, LM Studio)
-  local:
-    type: ollama  # or "openai" for OpenAI-compatible servers
-    base_url: http://localhost:11434
-    model: llama3.2  # All PII requests use this model
-    # api_key: ${LOCAL_API_KEY}  # Only needed for OpenAI-compatible servers
+# Local provider - only for route mode
+# PII requests are sent here instead of the configured provider
+# Supports: ollama (native), openai (for vLLM, LocalAI, LM Studio, etc.)
+#
+# Uncomment for route mode:
+# local:
+#   type: ollama  # or "openai" for OpenAI-compatible servers
+#   base_url: http://localhost:11434
+#   model: llama3.2
+#   # api_key: ${LOCAL_API_KEY}  # Only needed for OpenAI-compatible servers
 
-# Routing rules (only for route mode - can be removed if using mask mode)
-routing:
-  # Default provider when no PII is detected
-  default: upstream
-
-  # Provider to use when PII is detected
-  on_pii_detected: local
-
-# Masking settings (only for mask mode - can be removed if using route mode)
+# Masking settings (only for mask mode)
 masking:
   # Add visual markers to unmasked values in response (for debugging/demos)
   # Interferes with copy/paste, so disabled by default
@@ -95,11 +89,10 @@ secrets_detection:
   enabled: true
 
   # Action to take when secrets are detected:
+  #   redact:       Replace secrets with placeholders, unmask in response (default)
   #   block:        Block the request with HTTP 400
-  #   redact:       Replace secrets with placeholders, unmask in response
   #   route_local:  Route to local provider (only works in route mode)
-  # Default: redact (if not specified)
-  action: block
+  action: redact
 
   # Secret types to detect
   # Private Keys (enabled by default):
@@ -155,7 +148,7 @@ logging:
   log_content: false
 
   # Log masked content for dashboard preview (default: true)
-  # Shows what was actually sent to upstream LLM with PII replaced by placeholders
+  # Shows what was actually sent to provider with PII replaced by placeholders
   # Disable if you don't want any content stored, even masked
   log_masked_content: true
 

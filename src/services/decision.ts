@@ -9,7 +9,7 @@ import { getPIIDetector, type PIIDetectionResult } from "../services/pii-detecto
  */
 export interface RouteDecision {
   mode: "route";
-  provider: "upstream" | "local";
+  provider: "openai" | "local";
   reason: string;
   piiResult: PIIDetectionResult;
 }
@@ -19,7 +19,7 @@ export interface RouteDecision {
  */
 export interface MaskDecision {
   mode: "mask";
-  provider: "upstream";
+  provider: "openai";
   reason: string;
   piiResult: PIIDetectionResult;
   maskedMessages: ChatMessage[];
@@ -30,19 +30,19 @@ export type RoutingDecision = RouteDecision | MaskDecision;
 
 /**
  * Router that decides how to handle requests based on PII detection
- * Supports two modes: route (to local LLM) or mask (anonymize for upstream)
+ * Supports two modes: route (to local LLM) or mask (anonymize for provider)
  */
 export class Router {
-  private upstreamClient: LLMClient;
+  private openaiClient: LLMClient;
   private localClient: LLMClient | null;
   private config: Config;
 
   constructor() {
     this.config = getConfig();
 
-    this.upstreamClient = new LLMClient(this.config.providers.upstream, "upstream");
-    this.localClient = this.config.providers.local
-      ? new LLMClient(this.config.providers.local, "local", this.config.providers.local.model)
+    this.openaiClient = new LLMClient(this.config.providers.openai, "openai");
+    this.localClient = this.config.local
+      ? new LLMClient(this.config.local, "local", this.config.local.model)
       : null;
   }
 
@@ -76,17 +76,14 @@ export class Router {
   /**
    * Route mode: decides which provider to use
    *
-   * Secrets routing takes precedence over PII routing when action is route_local
+   * - No PII/Secrets → use configured provider (openai)
+   * - PII detected → use local provider
+   * - Secrets detected with route_local action → use local provider (takes precedence)
    */
   private decideRoute(
     piiResult: PIIDetectionResult,
     secretsResult?: SecretsDetectionResult,
   ): RouteDecision {
-    const routing = this.config.routing;
-    if (!routing) {
-      throw new Error("Route mode requires routing configuration");
-    }
-
     // Check for secrets route_local action first (takes precedence)
     if (secretsResult?.detected && this.config.secrets_detection.action === "route_local") {
       const secretTypes = secretsResult.matches.map((m) => m.type);
@@ -103,16 +100,16 @@ export class Router {
       const entityTypes = [...new Set(piiResult.newEntities.map((e) => e.entity_type))];
       return {
         mode: "route",
-        provider: routing.on_pii_detected,
+        provider: "local",
         reason: `PII detected: ${entityTypes.join(", ")}`,
         piiResult,
       };
     }
 
-    // No PII detected, use default provider
+    // No PII detected, use configured provider
     return {
       mode: "route",
-      provider: routing.default,
+      provider: "openai",
       reason: "No PII detected",
       piiResult,
     };
@@ -125,7 +122,7 @@ export class Router {
     if (!piiResult.hasPII) {
       return {
         mode: "mask",
-        provider: "upstream",
+        provider: "openai",
         reason: "No PII detected",
         piiResult,
         maskedMessages: messages,
@@ -139,7 +136,7 @@ export class Router {
 
     return {
       mode: "mask",
-      provider: "upstream",
+      provider: "openai",
       reason: `PII masked: ${entityTypes.join(", ")}`,
       piiResult,
       maskedMessages: masked,
@@ -147,14 +144,14 @@ export class Router {
     };
   }
 
-  getClient(provider: "upstream" | "local"): LLMClient {
+  getClient(provider: "openai" | "local"): LLMClient {
     if (provider === "local") {
       if (!this.localClient) {
         throw new Error("Local provider not configured");
       }
       return this.localClient;
     }
-    return this.upstreamClient;
+    return this.openaiClient;
   }
 
   /**
@@ -187,7 +184,7 @@ export class Router {
   getProvidersInfo() {
     return {
       mode: this.config.mode,
-      upstream: this.upstreamClient.getInfo(),
+      openai: this.openaiClient.getInfo(),
       local: this.localClient?.getInfo() ?? null,
     };
   }

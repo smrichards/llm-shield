@@ -8,10 +8,9 @@ import type { PIIDetectionResult } from "./pii-detector";
  */
 function decideRoute(
   piiResult: PIIDetectionResult,
-  routing: { default: "upstream" | "local"; on_pii_detected: "upstream" | "local" },
   secretsResult?: SecretsDetectionResult,
   secretsAction?: "block" | "redact" | "route_local",
-): { provider: "upstream" | "local"; reason: string } {
+): { provider: "openai" | "local"; reason: string } {
   // Check for secrets route_local action first (takes precedence)
   if (secretsResult?.detected && secretsAction === "route_local") {
     const secretTypes = secretsResult.matches.map((m) => m.type);
@@ -24,13 +23,13 @@ function decideRoute(
   if (piiResult.hasPII) {
     const entityTypes = [...new Set(piiResult.newEntities.map((e) => e.entity_type))];
     return {
-      provider: routing.on_pii_detected,
+      provider: "local",
       reason: `PII detected: ${entityTypes.join(", ")}`,
     };
   }
 
   return {
-    provider: routing.default,
+    provider: "openai",
     reason: "No PII detected",
   };
 }
@@ -60,85 +59,47 @@ function createPIIResult(
 }
 
 describe("decideRoute", () => {
-  describe("with default=upstream, on_pii_detected=local", () => {
-    const routing = { default: "upstream" as const, on_pii_detected: "local" as const };
+  test("routes to openai when no PII detected", () => {
+    const result = decideRoute(createPIIResult(false));
 
-    test("routes to upstream when no PII detected", () => {
-      const result = decideRoute(createPIIResult(false), routing);
-
-      expect(result.provider).toBe("upstream");
-      expect(result.reason).toBe("No PII detected");
-    });
-
-    test("routes to local when PII detected", () => {
-      const result = decideRoute(createPIIResult(true, [{ entity_type: "PERSON" }]), routing);
-
-      expect(result.provider).toBe("local");
-      expect(result.reason).toContain("PII detected");
-      expect(result.reason).toContain("PERSON");
-    });
-
-    test("includes all entity types in reason", () => {
-      const result = decideRoute(
-        createPIIResult(true, [
-          { entity_type: "PERSON" },
-          { entity_type: "EMAIL_ADDRESS" },
-          { entity_type: "PHONE_NUMBER" },
-        ]),
-        routing,
-      );
-
-      expect(result.reason).toContain("PERSON");
-      expect(result.reason).toContain("EMAIL_ADDRESS");
-      expect(result.reason).toContain("PHONE_NUMBER");
-    });
-
-    test("deduplicates entity types in reason", () => {
-      const result = decideRoute(
-        createPIIResult(true, [
-          { entity_type: "PERSON" },
-          { entity_type: "PERSON" },
-          { entity_type: "PERSON" },
-        ]),
-        routing,
-      );
-
-      // Should only contain PERSON once
-      const matches = result.reason.match(/PERSON/g);
-      expect(matches?.length).toBe(1);
-    });
+    expect(result.provider).toBe("openai");
+    expect(result.reason).toBe("No PII detected");
   });
 
-  describe("with default=local, on_pii_detected=upstream", () => {
-    const routing = { default: "local" as const, on_pii_detected: "upstream" as const };
+  test("routes to local when PII detected", () => {
+    const result = decideRoute(createPIIResult(true, [{ entity_type: "PERSON" }]));
 
-    test("routes to local when no PII detected", () => {
-      const result = decideRoute(createPIIResult(false), routing);
-
-      expect(result.provider).toBe("local");
-      expect(result.reason).toBe("No PII detected");
-    });
-
-    test("routes to upstream when PII detected", () => {
-      const result = decideRoute(
-        createPIIResult(true, [{ entity_type: "EMAIL_ADDRESS" }]),
-        routing,
-      );
-
-      expect(result.provider).toBe("upstream");
-      expect(result.reason).toContain("PII detected");
-    });
+    expect(result.provider).toBe("local");
+    expect(result.reason).toContain("PII detected");
+    expect(result.reason).toContain("PERSON");
   });
 
-  describe("with same provider for both cases", () => {
-    const routing = { default: "upstream" as const, on_pii_detected: "upstream" as const };
+  test("includes all entity types in reason", () => {
+    const result = decideRoute(
+      createPIIResult(true, [
+        { entity_type: "PERSON" },
+        { entity_type: "EMAIL_ADDRESS" },
+        { entity_type: "PHONE_NUMBER" },
+      ]),
+    );
 
-    test("always routes to upstream regardless of PII", () => {
-      expect(decideRoute(createPIIResult(false), routing).provider).toBe("upstream");
-      expect(
-        decideRoute(createPIIResult(true, [{ entity_type: "PERSON" }]), routing).provider,
-      ).toBe("upstream");
-    });
+    expect(result.reason).toContain("PERSON");
+    expect(result.reason).toContain("EMAIL_ADDRESS");
+    expect(result.reason).toContain("PHONE_NUMBER");
+  });
+
+  test("deduplicates entity types in reason", () => {
+    const result = decideRoute(
+      createPIIResult(true, [
+        { entity_type: "PERSON" },
+        { entity_type: "PERSON" },
+        { entity_type: "PERSON" },
+      ]),
+    );
+
+    // Should only contain PERSON once
+    const matches = result.reason.match(/PERSON/g);
+    expect(matches?.length).toBe(1);
   });
 });
 
@@ -157,14 +118,12 @@ function createSecretsResult(
 }
 
 describe("decideRoute with secrets", () => {
-  const routing = { default: "upstream" as const, on_pii_detected: "local" as const };
-
   describe("with route_local action", () => {
     test("routes to local when secrets detected", () => {
       const piiResult = createPIIResult(false);
       const secretsResult = createSecretsResult(true, [{ type: "API_KEY_OPENAI", count: 1 }]);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "route_local");
+      const result = decideRoute(piiResult, secretsResult, "route_local");
 
       expect(result.provider).toBe("local");
       expect(result.reason).toContain("Secrets detected");
@@ -173,15 +132,10 @@ describe("decideRoute with secrets", () => {
     });
 
     test("secrets routing takes precedence over PII routing", () => {
-      // Even with on_pii_detected=upstream, secrets route_local should go to local
-      const routingUpstream = {
-        default: "upstream" as const,
-        on_pii_detected: "upstream" as const,
-      };
       const piiResult = createPIIResult(true, [{ entity_type: "PERSON" }]);
       const secretsResult = createSecretsResult(true, [{ type: "API_KEY_AWS", count: 1 }]);
 
-      const result = decideRoute(piiResult, routingUpstream, secretsResult, "route_local");
+      const result = decideRoute(piiResult, secretsResult, "route_local");
 
       expect(result.provider).toBe("local");
       expect(result.reason).toContain("Secrets detected");
@@ -191,19 +145,19 @@ describe("decideRoute with secrets", () => {
       const piiResult = createPIIResult(true, [{ entity_type: "EMAIL_ADDRESS" }]);
       const secretsResult = createSecretsResult(false);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "route_local");
+      const result = decideRoute(piiResult, secretsResult, "route_local");
 
-      expect(result.provider).toBe("local"); // PII detected -> on_pii_detected=local
+      expect(result.provider).toBe("local"); // PII detected -> local
       expect(result.reason).toContain("PII detected");
     });
 
-    test("routes to default when no secrets and no PII detected", () => {
+    test("routes to openai when no secrets and no PII detected", () => {
       const piiResult = createPIIResult(false);
       const secretsResult = createSecretsResult(false);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "route_local");
+      const result = decideRoute(piiResult, secretsResult, "route_local");
 
-      expect(result.provider).toBe("upstream");
+      expect(result.provider).toBe("openai");
       expect(result.reason).toBe("No PII detected");
     });
   });
@@ -213,10 +167,10 @@ describe("decideRoute with secrets", () => {
       const piiResult = createPIIResult(false);
       const secretsResult = createSecretsResult(true, [{ type: "JWT_TOKEN", count: 1 }]);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "block");
+      const result = decideRoute(piiResult, secretsResult, "block");
 
       // With block action, we shouldn't route based on secrets
-      expect(result.provider).toBe("upstream");
+      expect(result.provider).toBe("openai");
       expect(result.reason).toBe("No PII detected");
     });
   });
@@ -226,10 +180,10 @@ describe("decideRoute with secrets", () => {
       const piiResult = createPIIResult(false);
       const secretsResult = createSecretsResult(true, [{ type: "BEARER_TOKEN", count: 1 }]);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "redact");
+      const result = decideRoute(piiResult, secretsResult, "redact");
 
       // With redact action, we route based on PII, not secrets
-      expect(result.provider).toBe("upstream");
+      expect(result.provider).toBe("openai");
       expect(result.reason).toBe("No PII detected");
     });
   });
@@ -243,7 +197,7 @@ describe("decideRoute with secrets", () => {
         { type: "JWT_TOKEN", count: 1 },
       ]);
 
-      const result = decideRoute(piiResult, routing, secretsResult, "route_local");
+      const result = decideRoute(piiResult, secretsResult, "route_local");
 
       expect(result.reason).toContain("API_KEY_OPENAI");
       expect(result.reason).toContain("API_KEY_GITHUB");

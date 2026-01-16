@@ -4,21 +4,23 @@ import { z } from "zod";
 
 // Schema definitions
 
+// Local provider - for route mode when PII is detected
 const LocalProviderSchema = z.object({
-  type: z.enum(["openai", "ollama"]),
+  type: z.enum(["openai", "ollama"]), // ollama native or openai-compatible (vLLM, LocalAI, etc.)
   api_key: z.string().optional(),
   base_url: z.string().url(),
-  model: z.string(), // Required: maps incoming model to local model
+  model: z.string(), // Required: all PII requests use this model
+});
+
+// Providers - OpenAI-compatible endpoints (cloud or self-hosted)
+const OpenAIProviderSchema = z.object({
+  base_url: z.string().url().default("https://api.openai.com/v1"),
+  api_key: z.string().optional(), // Optional fallback if client doesn't send auth header
 });
 
 const MaskingSchema = z.object({
   show_markers: z.boolean().default(false),
   marker_text: z.string().default("[protected]"),
-});
-
-const RoutingSchema = z.object({
-  default: z.enum(["upstream", "local"]),
-  on_pii_detected: z.enum(["upstream", "local"]),
 });
 
 // All 25 spaCy languages with trained pipelines
@@ -114,21 +116,16 @@ const SecretsDetectionSchema = z.object({
   log_detected_types: z.boolean().default(true),
 });
 
-const UpstreamProviderSchema = z.object({
-  type: z.enum(["openai"]),
-  api_key: z.string().optional(),
-  base_url: z.string().url(),
-});
-
 const ConfigSchema = z
   .object({
     mode: z.enum(["route", "mask"]).default("route"),
     server: ServerSchema.default({}),
+    // Providers - OpenAI-compatible endpoints
     providers: z.object({
-      upstream: UpstreamProviderSchema,
-      local: LocalProviderSchema.optional(),
+      openai: OpenAIProviderSchema.default({}),
     }),
-    routing: RoutingSchema.optional(),
+    // Local provider - only for route mode
+    local: LocalProviderSchema.optional(),
     masking: MaskingSchema.default({}),
     pii_detection: PIIDetectionSchema,
     logging: LoggingSchema.default({}),
@@ -137,14 +134,14 @@ const ConfigSchema = z
   })
   .refine(
     (config) => {
-      // Route mode requires local provider and routing config
+      // Route mode requires local provider
       if (config.mode === "route") {
-        return config.providers.local !== undefined && config.routing !== undefined;
+        return config.local !== undefined;
       }
       return true;
     },
     {
-      message: "Route mode requires 'providers.local' and 'routing' configuration",
+      message: "Route mode requires 'local' provider configuration",
     },
   )
   .refine(
@@ -162,8 +159,8 @@ const ConfigSchema = z
   );
 
 export type Config = z.infer<typeof ConfigSchema>;
-export type UpstreamProvider = z.infer<typeof UpstreamProviderSchema>;
-export type LocalProvider = z.infer<typeof LocalProviderSchema>;
+export type OpenAIProviderConfig = z.infer<typeof OpenAIProviderSchema>;
+export type LocalProviderConfig = z.infer<typeof LocalProviderSchema>;
 export type MaskingConfig = z.infer<typeof MaskingSchema>;
 export type SecretsDetectionConfig = z.infer<typeof SecretsDetectionSchema>;
 
