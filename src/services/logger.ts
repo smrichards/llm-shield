@@ -6,7 +6,7 @@ export interface RequestLog {
   id?: number;
   timestamp: string;
   mode: "route" | "mask";
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   pii_detected: boolean;
   entities: string;
@@ -282,7 +282,7 @@ export function getLogger(): Logger {
 export interface RequestLogData {
   timestamp: string;
   mode: "route" | "mask";
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   piiDetected: boolean;
   entities: string[];

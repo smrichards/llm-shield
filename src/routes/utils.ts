@@ -207,7 +207,7 @@ export function toSecretsHeaderData<T>(
 }
 
 export interface CreateLogDataOptions {
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   startTime: number;
   pii?: PIILogData;

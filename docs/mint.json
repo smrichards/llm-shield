@@ -50,6 +50,7 @@
       "pages": [
         "api-reference/openai",
         "api-reference/anthropic",
+        "api-reference/mask",
         "api-reference/status",
         "api-reference/dashboard-api"
       ]

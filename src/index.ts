@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import { getConfig } from "./config";
 import { getPIIDetector } from "./pii/detect";
 import { anthropicRoutes } from "./routes/anthropic";
+import { apiRoutes } from "./routes/api";
 import { dashboardRoutes } from "./routes/dashboard";
 import { healthRoutes } from "./routes/health";
 import { infoRoutes } from "./routes/info";
@@ -45,6 +46,7 @@ app.route("/", healthRoutes);
 app.route("/", infoRoutes);
 app.route("/openai", openaiRoutes);
 app.route("/anthropic", anthropicRoutes);
+app.route("/api", apiRoutes);
 
 if (config.dashboard.enabled) {
   app.route("/dashboard", dashboardRoutes);
@@ -181,6 +183,7 @@ Provider:
 Server:     http://${host}:${port}
 OpenAI API: http://${host}:${port}/openai/v1/chat/completions
 Anthropic:  http://${host}:${port}/anthropic/v1/messages
+Mask API:   http://${host}:${port}/api/mask
 Health:     http://${host}:${port}/health
 Info:       http://${host}:${port}/info
 Dashboard:  http://${host}:${port}/dashboard
