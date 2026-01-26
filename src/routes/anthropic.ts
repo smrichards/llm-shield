@@ -263,7 +263,7 @@ function respondBlocked(
       provider: "anthropic",
       model: request.model,
       startTime,
-      secrets: { detected: true, matches: secretTypes.map((t) => ({ type: t })), masked: false },
+      secrets: { detected: true, types: secretTypes, masked: false },
       statusCode: 400,
       errorMessage: `Request blocked: detected secret material (${secretTypes.join(",")})`,
     }),

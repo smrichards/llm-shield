@@ -137,7 +137,7 @@ export function setBlockedHeaders(c: Context, secretTypes: string[]): void {
  */
 export interface PIILogData {
   hasPII: boolean;
-  allEntities: { entity_type: string }[];
+  entityTypes: string[];
   language: string;
   languageFallback: boolean;
   detectedLanguage?: string;
@@ -149,7 +149,7 @@ export interface PIILogData {
  */
 export interface SecretsLogData {
   detected?: boolean;
-  matches?: { type: string }[];
+  types?: string[];
   masked: boolean;
 }
 
@@ -159,7 +159,7 @@ export interface SecretsLogData {
 export function toPIILogData(piiResult: PIIDetectResult): PIILogData {
   return {
     hasPII: piiResult.hasPII,
-    allEntities: piiResult.detection.allEntities,
+    entityTypes: [...new Set(piiResult.detection.allEntities.map((e) => e.entity_type))],
     language: piiResult.detection.language,
     languageFallback: piiResult.detection.languageFallback,
     detectedLanguage: piiResult.detection.detectedLanguage,
@@ -187,7 +187,7 @@ export function toSecretsLogData<T>(
   if (!secretsResult.detection) return undefined;
   return {
     detected: secretsResult.detection.detected,
-    matches: secretsResult.detection.matches,
+    types: secretsResult.detection.matches.map((m) => m.type),
     masked: secretsResult.masked,
   };
 }
@@ -207,7 +207,7 @@ export function toSecretsHeaderData<T>(
 }
 
 export interface CreateLogDataOptions {
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   startTime: number;
   pii?: PIILogData;
@@ -231,7 +231,7 @@ export function createLogData(options: CreateLogDataOptions): RequestLogData {
     provider,
     model: model || "unknown",
     piiDetected: pii?.hasPII ?? false,
-    entities: pii ? [...new Set(pii.allEntities.map((e) => e.entity_type))] : [],
+    entities: pii?.entityTypes ?? [],
     latencyMs: Date.now() - startTime,
     scanTimeMs: pii?.scanTimeMs ?? 0,
     language: pii?.language ?? config.pii_detection.fallback_language,
@@ -239,7 +239,7 @@ export function createLogData(options: CreateLogDataOptions): RequestLogData {
     detectedLanguage: pii?.detectedLanguage,
     maskedContent,
     secretsDetected: secrets?.detected,
-    secretsTypes: secrets?.matches?.map((m) => m.type),
+    secretsTypes: secrets?.types,
     statusCode,
     errorMessage,
   };

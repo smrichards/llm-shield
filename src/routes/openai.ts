@@ -206,7 +206,7 @@ function respondBlocked(
       provider: "openai",
       model: body.model || "unknown",
       startTime,
-      secrets: { detected: true, matches: secretTypes.map((t) => ({ type: t })), masked: false },
+      secrets: { detected: true, types: secretTypes, masked: false },
       statusCode: 400,
       errorMessage: secretsResult.blockedReason,
     }),
