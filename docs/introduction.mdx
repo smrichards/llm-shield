@@ -1,67 +1,50 @@
 ---
 title: Introduction
-description: Privacy proxy for OpenAI and Anthropic
+description: AI gets the context. Not your secrets. Open-source privacy proxy for OpenAI, Anthropic, and any AI.
 ---
 
-PasteGuard masks personal data and secrets before they reach OpenAI or Anthropic.
+PasteGuard automatically hides names, emails, and API keys before you send prompts to AI. Your data never leaves your machine.
 
-```
-You send:  "Email Dr. Sarah Chen at sarah@hospital.org"
-LLM sees:  "Email [[PERSON_1]] at [[EMAIL_ADDRESS_1]]"
-You get:   Response with original names restored
-```
-
-PasteGuard sits between your app and the API:
+Detects 30+ types of sensitive data across 24 languages.
 
 <Frame>
-  <img src="/images/demo.gif" alt="PasteGuard Demo" />
+  <img className="block dark:hidden" src="/images/comparison-light.png" alt="PasteGuard Comparison" />
+  <img className="hidden dark:block" src="/images/comparison-dark.png" alt="PasteGuard Comparison" />
 </Frame>
 
-Two privacy modes:
+## Works Everywhere
+
+<CardGroup cols={2}>
+  <Card title="Chat" icon="comment" href="/use-cases/chat">
+    ChatGPT, Claude, Gemini
+  </Card>
+  <Card title="Apps" icon="table-columns" href="/use-cases/apps">
+    Open WebUI, LibreChat
+  </Card>
+  <Card title="Coding Tools" icon="code" href="/use-cases/coding-tools">
+    Cursor, Claude Code, Copilot, Windsurf
+  </Card>
+  <Card title="API Integration" icon="plug" href="/use-cases/api-integration">
+    OpenAI SDK, Anthropic SDK, LangChain
+  </Card>
+</CardGroup>
+
+## Two Privacy Modes
 
 | Mode | How it works |
 |------|--------------|
 | **Mask** | Replace PII with placeholders, send to OpenAI or Anthropic, restore in response |
 | **Route** | PII requests stay on your local LLM (Ollama, vLLM, llama.cpp), others go to OpenAI or Anthropic |
 
-## Browser Extension (Beta)
-
-An open source browser extension that brings PasteGuard protection to ChatGPT, Claude, Gemini, Copilot, and Perplexity.
-
-- Paste customer data → PII is masked before it reaches the AI
-- You see the original, AI sees `[[PERSON_1]]`, `[[EMAIL_1]]`
-
-Open source (Apache 2.0). Built in public — early feedback shapes the product.
-
-<Card title="Join the Beta" icon="flask" href="https://tally.so/r/J9pNLr">
-  Get early access to the browser extension
-</Card>
-
-## Features
-
-- **PII Detection** — Names, emails, phone numbers, credit cards, IBANs, and more
-- **Secrets Detection** — API keys, tokens, private keys caught before they reach OpenAI or Anthropic
-- **Streaming Support** — Real-time unmasking as tokens arrive
-- **24 Languages** — English, German, French, and 21 more
-- **OpenAI** — Works with OpenAI and compatible APIs (Azure, OpenRouter, Groq, Together AI, etc.)
-- **Anthropic** — Native Claude support, works with Claude Code
-- **Self-Hosted** — Your servers, your data stays yours
-- **Open Source** — Apache 2.0 license
-- **Dashboard** — See every protected request in real-time
+PasteGuard runs on your servers. Personal data never leaves your infrastructure, and the LLM provider never sees real names, emails, or secrets.
 
 ## Next Steps
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Get running in 2 minutes
-  </Card>
-  <Card title="Mask Mode" icon="eye-slash" href="/concepts/mask-mode">
-    Replace PII with placeholders
-  </Card>
-  <Card title="Route Mode" icon="code-branch" href="/concepts/route-mode">
-    Route PII to local LLM
+    Run PasteGuard as a local proxy
   </Card>
   <Card title="Configuration" icon="gear" href="/configuration/overview">
-    Customize your setup
+    Customize detection and providers
   </Card>
 </CardGroup>
