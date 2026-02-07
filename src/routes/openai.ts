@@ -149,6 +149,17 @@ openaiRoutes.all("/*", (c) => {
   const path = c.req.path.replace(/^\/openai\/v1/, "");
   const query = c.req.url.includes("?") ? c.req.url.slice(c.req.url.indexOf("?")) : "";
 
+  if (baseUrl.includes("openrouter.ai") && (path === "/files" || path.startsWith("/files/"))) {
+    return c.json(
+      errorFormats.openai.error(
+        "Configured upstream OpenRouter does not support /v1/files. Send files/images via chat messages[].content parts.",
+        "invalid_request_error",
+        "unsupported_endpoint",
+      ),
+      501,
+    );
+  }
+
   return proxy(`${baseUrl}${path}${query}`, {
     ...c.req,
     headers: {
