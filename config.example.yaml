@@ -1,10 +1,10 @@
-# LLM-Shield Configuration
+# PasteGuard Configuration
 # Copy this file to config.yaml and adjust the values
 
 # Privacy mode: "mask" or "route"
 #
-# mask:  Masks PII before sending to upstream, unmasks in response (no local LLM needed)
-# route: Routes requests to local LLM when PII detected (requires local provider)
+# mask:  Masks PII before sending to provider, unmasks in response
+# route: Routes PII requests to local LLM, non-PII to configured provider
 mode: mask
 
 # Server settings
@@ -12,38 +12,39 @@ server:
   port: 3000
   host: "0.0.0.0"
 
-# LLM Provider configuration
+# Providers - API endpoints
+# Can be cloud (OpenAI, Anthropic, Azure) or self-hosted (vLLM, LiteLLM proxy, etc.)
 providers:
-  # Upstream provider (required for both modes)
-  # The proxy forwards your client's Authorization header to the upstream provider
-  # You can optionally set api_key here as a fallback
-  upstream:
-    type: openai
+  # OpenAI-compatible endpoint (required)
+  # The proxy forwards your client's Authorization header
+  openai:
     base_url: https://api.openai.com/v1
     # api_key: ${OPENAI_API_KEY}  # Optional fallback if client doesn't send auth header
 
-  # Local provider (only for route mode - can be removed if using mask mode)
-  # Supports: ollama, openai (for OpenAI-compatible servers like LocalAI, LM Studio)
-  local:
-    type: ollama  # or "openai" for OpenAI-compatible servers
-    base_url: http://localhost:11434
-    model: llama3.2  # All PII requests use this model
-    # api_key: ${LOCAL_API_KEY}  # Only needed for OpenAI-compatible servers
+  # Anthropic endpoint (optional)
+  # Enable to use /anthropic/v1/messages endpoint
+  anthropic:
+    base_url: https://api.anthropic.com
+    # api_key: ${ANTHROPIC_API_KEY}  # Optional fallback if client doesn't send auth header
 
-# Routing rules (only for route mode - can be removed if using mask mode)
-routing:
-  # Default provider when no PII is detected
-  default: upstream
+# Local provider - only used when mode: route
+# Supports: ollama (native), openai (for vLLM, LocalAI, LM Studio, etc.)
+local:
+  type: ollama
+  base_url: http://localhost:11434
+  model: llama3.2
+  # api_key: ${LOCAL_API_KEY}  # Only needed for OpenAI-compatible servers
 
-  # Provider to use when PII is detected
-  on_pii_detected: local
-
-# Masking settings (only for mask mode - can be removed if using route mode)
+# Masking settings (only for mask mode)
 masking:
   # Add visual markers to unmasked values in response (for debugging/demos)
   # Interferes with copy/paste, so disabled by default
   show_markers: false
   marker_text: "[protected]"
+
+  # Text patterns that are never masked (protects against false positives)
+  # whitelist:
+  #   - "Company Name Inc."
 
 # PII Detection settings (Microsoft Presidio)
 pii_detection:
@@ -51,21 +52,20 @@ pii_detection:
 
   # Supported languages for PII detection
   # Auto-detects language from input text and uses appropriate model
-  # If only one language is specified, language detection is skipped
   #
-  # Languages must match what was installed during docker build:
-  #   LANGUAGES=en,de docker-compose build
+  # Docker: Uses PASTEGUARD_LANGUAGES env var (auto-configured per image)
+  # Local:  Uncomment the array below and comment out the env var line
   #
   # Available (24 languages): ca, zh, hr, da, nl, en, fi, fr, de, el,
   #   it, ja, ko, lt, mk, nb, pl, pt, ro, ru, sl, es, sv, uk
-  # See presidio/languages.yaml for full list with details
-  languages:
-    - en
-    # Add more languages to match your Docker build:
-    # - de
-    # - fr
-    # - es
-    # - it
+  # See docker/presidio/languages.yaml for full list with details
+  languages: ${PASTEGUARD_LANGUAGES:-en}
+  # languages:
+  #   - en
+  #   - de
+  #   - fr
+  #   - es
+  #   - it
 
   # Fallback language if detected language is not in the list above
   fallback_language: en
@@ -89,10 +89,83 @@ pii_detection:
     # - MEDICAL_LICENSE
     # - URL
 
+  # Which message roles to scan for PII (optional)
+  # By default, all roles are scanned. Set this to scan only user-controlled content:
+  #   - user:      User messages (primary source of PII)
+  #   - tool:      Tool/function call results (may contain user data)
+  #   - function:  Legacy function results (OpenAI)
+  # scan_roles:
+  #   - user
+  #   - tool
+  #   - function
+
+# Secrets Detection settings (Secrets Shield)
+# Detects private keys, API keys, tokens and other secret credentials in requests
+secrets_detection:
+  # Enable secrets detection (default: true)
+  enabled: true
+
+  # Action to take when secrets are detected:
+  #   mask:         Replace secrets with placeholders, unmask in response (default)
+  #   block:        Block the request with HTTP 400
+  #   route_local:  Route to local provider (only works in route mode)
+  action: mask
+
+  # Secret types to detect
+  # Private Keys (enabled by default):
+  #   - OPENSSH_PRIVATE_KEY: OpenSSH format (-----BEGIN OPENSSH PRIVATE KEY-----)
+  #   - PEM_PRIVATE_KEY:     PEM formats (RSA, PRIVATE KEY, ENCRYPTED PRIVATE KEY)
+  #
+  # API Keys (opt-in):
+  #   - API_KEY_SK:          Secret keys with sk- or sk_ prefix (OpenAI, Anthropic, Stripe, RevenueCat)
+  #   - API_KEY_AWS:         AWS Access Keys (AKIA...)
+  #   - API_KEY_GITHUB:      GitHub tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+  #
+  # Tokens (opt-in):
+  #   - JWT_TOKEN:           JSON Web Tokens (eyJ...)
+  #   - BEARER_TOKEN:        Bearer tokens in Authorization-style contexts
+  #
+  # Environment Variables (opt-in):
+  #   - ENV_PASSWORD:        DB_PASSWORD=..., ADMIN_PWD=... (8+ char values)
+  #   - ENV_SECRET:          APP_SECRET=..., JWT_SECRET=... (8+ char values)
+  #   - CONNECTION_STRING:   postgres://user:pass@host, mongodb://...
+  entities:
+    - OPENSSH_PRIVATE_KEY
+    - PEM_PRIVATE_KEY
+    # Uncomment to detect API keys and tokens:
+    # - API_KEY_SK
+    # - API_KEY_AWS
+    # - API_KEY_GITHUB
+    # - JWT_TOKEN
+    # - BEARER_TOKEN
+    # - ENV_PASSWORD
+    # - ENV_SECRET
+    # - CONNECTION_STRING
+
+  # Maximum characters to scan per request (performance limit)
+  # Note: Secrets placed after this limit won't be detected.
+  # Set to 0 to scan entire request (full coverage, but slower for large payloads)
+  # The 200KB default covers typical use cases
+  max_scan_chars: 200000
+
+  # Log detected secret types (never logs secret content)
+  # Even if logging.log_content is true, secret content is never logged
+  log_detected_types: true
+
+  # Which message roles to scan for secrets (optional)
+  # By default, all roles are scanned. Set this to scan only user-controlled content:
+  #   - user:      User messages (primary source of secrets)
+  #   - tool:      Tool/function call results (may contain secrets)
+  #   - function:  Legacy function results (OpenAI)
+  # scan_roles:
+  #   - user
+  #   - tool
+  #   - function
+
 # Logging settings
 logging:
   # SQLite database for request logs
-  database: ./data/llm-shield.db
+  database: ./data/pasteguard.db
 
   # Log retention in days (0 = keep forever)
   retention_days: 30
@@ -101,7 +174,7 @@ logging:
   log_content: false
 
   # Log masked content for dashboard preview (default: true)
-  # Shows what was actually sent to upstream LLM with PII replaced by tokens
+  # Shows what was actually sent to provider with PII replaced by placeholders
   # Disable if you don't want any content stored, even masked
   log_masked_content: true
 

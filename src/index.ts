@@ -4,13 +4,14 @@ import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { getConfig } from "./config";
-import { chatRoutes } from "./routes/chat";
+import { getPIIDetector } from "./pii/detect";
+import { anthropicRoutes } from "./routes/anthropic";
+import { apiRoutes } from "./routes/api";
 import { dashboardRoutes } from "./routes/dashboard";
-import { filesRoutes } from "./routes/files";
 import { healthRoutes } from "./routes/health";
 import { infoRoutes } from "./routes/info";
+import { openaiRoutes } from "./routes/openai";
 import { getLogger } from "./services/logger";
-import { getPIIDetector } from "./services/pii-detector";
 
 type Variables = {
   requestId: string;
@@ -32,10 +33,20 @@ app.use("*", requestIdMiddleware);
 app.use("*", cors());
 app.use("*", logger());
 
+// Favicon
+app.get("/favicon.svg", (c) => {
+  const svg = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M32 6C20 6 12 12 12 12v20c0 12 8 22 20 26 12-4 20-14 20-26V12s-8-6-20-6z" fill="#b45309"/></svg>`;
+  return c.body(svg, 200, {
+    "Content-Type": "image/svg+xml",
+    "Cache-Control": "public, max-age=86400",
+  });
+});
+
 app.route("/", healthRoutes);
 app.route("/", infoRoutes);
-app.route("/openai/v1", chatRoutes);
-app.route("/openai/v1", filesRoutes);
+app.route("/openai", openaiRoutes);
+app.route("/anthropic", anthropicRoutes);
+app.route("/api", apiRoutes);
 
 if (config.dashboard.enabled) {
   app.route("/dashboard", dashboardRoutes);
@@ -55,15 +66,7 @@ app.notFound((c) => {
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    return c.json(
-      {
-        error: {
-          message: err.message,
-          type: err.status >= 500 ? "server_error" : "client_error",
-        },
-      },
-      err.status,
-    );
+    return err.getResponse();
   }
 
   console.error("Unhandled error:", err);
@@ -95,11 +98,21 @@ validateStartup().then(() => {
 });
 
 async function validateStartup() {
+  // Validate secrets detection configuration
+  if (config.secrets_detection.action === "route_local" && config.mode === "mask") {
+    console.error("\n❌ Configuration error detected!\n");
+    console.error("   secrets_detection.action 'route_local' is not compatible with mode 'mask'.");
+    console.error("   Use mode 'route' or change secrets_detection.action to 'block' or 'mask'.\n");
+    console.error("[STARTUP] ✗ Invalid configuration. Exiting for safety.");
+    process.exit(1);
+  }
+
   const detector = getPIIDetector();
 
-  // Wait for Presidio to be ready
+  // Wait for Presidio to be ready (multi-language setups need longer to load spaCy models)
+  const startupTimeout = Number(process.env.PASTEGUARD_STARTUP_TIMEOUT) || 180;
   console.log("[STARTUP] Connecting to Presidio...");
-  const ready = await detector.waitForReady(30, 1000);
+  const ready = await detector.waitForReady(startupTimeout, 1000);
 
   if (!ready) {
     console.error(
@@ -141,27 +154,29 @@ function printStartupBanner(config: ReturnType<typeof getConfig>, host: string, 
     config.mode === "route"
       ? `
 Routing:
-  Default: ${config.routing?.default || "upstream"}
-  On PII:  ${config.routing?.on_pii_detected || "local"}
+  No PII:  openai (configured)
+  On PII:  local
 
 Providers:
-  Upstream: ${config.providers.upstream.type}
-  Local:    ${config.providers.local?.type || "not configured"} → ${config.providers.local?.model || "n/a"}`
+  OpenAI: ${config.providers.openai.base_url}
+  Local:  ${config.local?.type || "not configured"} → ${config.local?.model || "n/a"}`
       : `
 Masking:
   Markers: ${config.masking.show_markers ? "enabled" : "disabled"}
 
 Provider:
-  Upstream: ${config.providers.upstream.type}`;
+  OpenAI: ${config.providers.openai.base_url}`;
 
   console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║                       LLM-Shield                          ║
-║         Intelligent privacy-aware LLM proxy               ║
+║                       PasteGuard                          ║
+║              Privacy proxy for LLMs                       ║
 ╚═══════════════════════════════════════════════════════════╝
 
 Server:     http://${host}:${port}
-API:        http://${host}:${port}/openai/v1/chat/completions
+OpenAI API: http://${host}:${port}/openai/v1/chat/completions
+Anthropic:  http://${host}:${port}/anthropic/v1/messages
+Mask API:   http://${host}:${port}/api/mask
 Health:     http://${host}:${port}/health
 Info:       http://${host}:${port}/info
 Dashboard:  http://${host}:${port}/dashboard
@@ -174,6 +189,11 @@ PII Detection:
   Fallback:  ${config.pii_detection.fallback_language}
   Threshold: ${config.pii_detection.score_threshold}
   Entities:  ${config.pii_detection.entities.join(", ")}
+
+Secrets Detection:
+  Enabled:   ${config.secrets_detection.enabled ? "yes" : "no"}
+  Action:    ${config.secrets_detection.enabled ? config.secrets_detection.action : "n/a"}
+  Entities:  ${config.secrets_detection.enabled ? config.secrets_detection.entities.join(", ") : "n/a"}
 `);
 }
 

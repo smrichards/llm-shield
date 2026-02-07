@@ -1,0 +1,134 @@
+---
+title: PII Detection Config
+description: Configure PII detection settings
+---
+
+```yaml
+pii_detection:
+  presidio_url: http://localhost:5002
+  languages: ${PASTEGUARD_LANGUAGES:-en}  # Auto-configured per Docker image
+  fallback_language: en
+  score_threshold: 0.7
+  entities:
+    - PERSON
+    - EMAIL_ADDRESS
+    - PHONE_NUMBER
+    - CREDIT_CARD
+    - IBAN_CODE
+    - IP_ADDRESS
+    - LOCATION
+```
+
+## Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `presidio_url` | `http://localhost:5002` | Presidio analyzer URL |
+| `languages` | (per image) | Languages to detect. Auto-configured in Docker images |
+| `fallback_language` | `en` | Fallback if detected language not in list |
+| `score_threshold` | `0.7` | Minimum confidence (0.0-1.0) |
+| `entities` | See below | Entity types to detect |
+
+## Languages
+
+Languages are auto-configured per Docker image:
+
+- **`:en` image** → English only
+- **`:eu` image** → English, German, Spanish, French, Italian, Dutch, Polish, Portuguese, Romanian
+
+Each language adds ~10s to startup time as spaCy models are loaded.
+
+For custom language builds:
+
+```bash
+LANGUAGES=en,de,ja docker compose up -d --build
+```
+
+Available languages (24):
+`ca`, `zh`, `hr`, `da`, `nl`, `en`, `fi`, `fr`, `de`, `el`, `it`, `ja`, `ko`, `lt`, `mk`, `nb`, `pl`, `pt`, `ro`, `ru`, `sl`, `es`, `sv`, `uk`
+
+### Override Languages
+
+For local development or custom setups, override via config:
+
+```yaml
+pii_detection:
+  languages:
+    - en
+    - de
+```
+
+### Fallback Language
+
+If the detected language isn't in your configured list, the fallback is used:
+
+```yaml
+pii_detection:
+  fallback_language: en  # Used for unsupported languages
+```
+
+### Performance
+
+If only one language is configured, language detection is skipped for better performance.
+
+## Entities
+
+| Entity | Examples |
+|--------|----------|
+| `PERSON` | Dr. Sarah Chen, John Smith |
+| `EMAIL_ADDRESS` | sarah.chen@hospital.org |
+| `PHONE_NUMBER` | +1-555-123-4567 |
+| `CREDIT_CARD` | 4111-1111-1111-1111 |
+| `IBAN_CODE` | DE89 3704 0044 0532 0130 00 |
+| `IP_ADDRESS` | 192.168.1.1 |
+| `LOCATION` | New York, 123 Main St |
+| `US_SSN` | 123-45-6789 |
+| `US_PASSPORT` | 123456789 |
+| `CRYPTO` | Bitcoin addresses |
+| `URL` | https://example.com |
+
+## Score Threshold
+
+Higher = fewer false positives, might miss some PII. Lower = catches more PII, more false positives.
+
+```yaml
+pii_detection:
+  score_threshold: 0.7  # Default, good balance
+  # score_threshold: 0.5  # More aggressive
+  # score_threshold: 0.9  # More conservative
+```
+
+## Whitelist
+
+Exclude specific text patterns from PII masking. Useful for preventing false positives on company names or product identifiers.
+
+```yaml
+masking:
+  whitelist:
+    - "Acme Corp"
+    - "Product XYZ"
+```
+
+Patterns match bidirectionally - detected text containing a whitelist entry (or vice versa) is excluded.
+
+## Scan Roles
+
+By default, all message roles are scanned. To scan only user-controlled content:
+
+```yaml
+pii_detection:
+  scan_roles:
+    - user
+    - tool
+    - function
+```
+
+| Role | Description |
+|------|-------------|
+| `user` | User messages (primary source of PII) |
+| `assistant` | Assistant responses |
+| `system` | System prompts |
+| `tool` | Tool/function call results |
+| `function` | Legacy function results (OpenAI) |
+
+This reduces Presidio API calls for large system prompts and avoids false positives on app-controlled content.

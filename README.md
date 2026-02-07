@@ -1,253 +1,143 @@
-# 🛡️ LLM-Shield
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/wordmark-light.svg">
+    <img src="assets/wordmark-light.svg" width="220" height="44" alt="PasteGuard">
+  </picture>
+</p>
 
-[![CI](https://github.com/sgasser/llm-shield/actions/workflows/ci.yml/badge.svg)](https://github.com/sgasser/llm-shield/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/sgasser/pasteguard/actions/workflows/ci.yml"><img src="https://github.com/sgasser/pasteguard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"></a>
+  <a href="https://github.com/sgasser/pasteguard/releases"><img src="https://img.shields.io/github/v/release/sgasser/pasteguard" alt="Release"></a>
+</p>
 
-Privacy proxy for LLMs. Masks personal data before sending to your provider (OpenAI, Azure, etc.), or routes sensitive requests to local LLM.
+<p align="center">
+  <strong>AI gets the context. Not your secrets.</strong><br>
+  Automatically hides names, emails, and API keys before you send prompts to AI.
+</p>
 
-<img src="docs/dashboard.png" width="100%" alt="LLM-Shield Dashboard">
+<p align="center">
+  <a href="#quick-start"><strong>Quick Start</strong></a> ·
+  <a href="#chat"><strong>Chat</strong></a> ·
+  <a href="#coding-tools"><strong>Coding Tools</strong></a> ·
+  <a href="https://pasteguard.com/docs"><strong>Documentation</strong></a>
+</p>
 
-## Mask Mode (Default)
+<br/>
 
-Replaces personal data with placeholders before sending to LLM. Unmasks the response automatically.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/comparison-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/comparison.png">
+  <img src="assets/comparison.png" width="100%" alt="PasteGuard — Without vs. With: masks names, emails, and API keys before they reach AI">
+</picture>
 
-```
-You send:              "Email john@acme.com about the meeting with Sarah Miller"
-OpenAI receives:       "Email <EMAIL_1> about the meeting with <PERSON_1>"
-OpenAI responds:       "I'll contact <EMAIL_1> to schedule with <PERSON_1>..."
-You receive:           "I'll contact john@acme.com to schedule with Sarah Miller..."
-```
+<p align="center">
+  Detects 30+ types of sensitive data across 24 languages.<br>
+  Your data never leaves your machine.
+</p>
 
-- No local GPU needed
-- Supports streaming with real-time unmasking
+## Works Everywhere
 
-## Route Mode
+**[Chat](https://pasteguard.com/docs/use-cases/chat)** — Masks PII and secrets when you paste into ChatGPT, Claude, and Gemini. You see originals, AI sees placeholders.
 
-Requests with personal data go to local LLM. Everything else goes to your provider.
+**[Apps](https://pasteguard.com/docs/use-cases/apps)** — Open WebUI, LibreChat, or any self-hosted AI setup. Optionally routes sensitive requests to a local model.
 
-```
-"Help with code review"              → OpenAI (best quality)
-"Email john@acme.com about..."       → Ollama (stays on your network)
-```
+**[Coding Tools](https://pasteguard.com/docs/use-cases/coding-tools)** — Cursor, Claude Code, Copilot, Windsurf — your codebase context flows to the provider. PasteGuard masks secrets and PII before they leave.
 
-- Requires local LLM (Ollama, vLLM, LocalAI)
-- Full data isolation - personal data never leaves your network
-
-## What It Detects
-
-| Type | Examples |
-|------|----------|
-| Names | John Smith, Sarah Miller |
-| Emails | john@acme.com |
-| Phone numbers | +1 555 123 4567 |
-| Credit cards | 4111-1111-1111-1111 |
-| IBANs | DE89 3704 0044 0532 0130 00 |
-| IP addresses | 192.168.1.1 |
-| Locations | New York, Berlin |
-
-Additional entity types can be enabled: `US_SSN`, `US_PASSPORT`, `CRYPTO`, `NRP`, `MEDICAL_LICENSE`, `URL`.
-
-**Languages**: 24 languages supported (configurable at build time). Auto-detected per request.
-
-Powered by [Microsoft Presidio](https://microsoft.github.io/presidio/).
+**[API Integration](https://pasteguard.com/docs/use-cases/api-integration)** — Sits between your code and OpenAI or Anthropic. Change one URL, your users' data stays protected.
 
 ## Quick Start
 
-### Docker (recommended)
+Run PasteGuard as a local proxy:
 
 ```bash
-git clone https://github.com/sgasser/llm-shield.git
-cd llm-shield
-cp config.example.yaml config.yaml
-
-# Option 1: English only (default, ~1.5GB)
-docker compose up -d
-
-# Option 2: Multiple languages (~2.5GB)
-# Edit config.yaml to add languages, then:
-LANGUAGES=en,de,fr,es,it docker compose up -d
+docker run --rm -p 3000:3000 ghcr.io/sgasser/pasteguard:en
 ```
 
-### Local Development
+Point your tools or app to PasteGuard instead of the provider:
+
+| API | PasteGuard URL | Original URL |
+|----------|----------------|--------------|
+| OpenAI | `http://localhost:3000/openai/v1` | `https://api.openai.com/v1` |
+| Anthropic | `http://localhost:3000/anthropic` | `https://api.anthropic.com` |
+
+```python
+# One line to protect your data
+client = OpenAI(base_url="http://localhost:3000/openai/v1")
+```
+
+<details>
+<summary><strong>European Languages</strong></summary>
+
+For German, Spanish, French, Italian, Dutch, Polish, Portuguese, and Romanian:
 
 ```bash
-git clone https://github.com/sgasser/llm-shield.git
-cd llm-shield
-bun install
-cp config.example.yaml config.yaml
-
-# Option 1: English only (default)
-docker compose up presidio-analyzer -d
-
-# Option 2: Multiple languages
-# Edit config.yaml to add languages, then:
-LANGUAGES=en,de,fr,es,it docker compose build presidio-analyzer
-docker compose up presidio-analyzer -d
-
-bun run dev
+docker run --rm -p 3000:3000 ghcr.io/sgasser/pasteguard:eu
 ```
 
-Dashboard: http://localhost:3000/dashboard
+For custom config, persistent logs, or other languages: **[Read the docs →](https://pasteguard.com/docs/installation)**
 
-**Usage:** Point your app to `http://localhost:3000/openai/v1` instead of `https://api.openai.com/v1`.
+</details>
 
-## Language Configuration
+<details>
+<summary><strong>Route Mode</strong></summary>
 
-By default, only English is installed to minimize image size. Add more languages at build time:
+Route Mode sends requests containing sensitive data to a local LLM (Ollama, vLLM, llama.cpp). Everything else goes to OpenAI or Anthropic. Sensitive data stays on your network.
+
+**[Route Mode docs →](https://pasteguard.com/docs/concepts/route-mode)**
+
+</details>
+
+## Chat
+
+Open-source browser extension for ChatGPT, Claude, and Gemini.
+
+- Paste customer data → masked before it reaches the AI
+- AI responds with placeholders → you see the originals
+- Works with the same detection engine as the proxy
+
+Currently in beta. Apache 2.0.
+
+**[Join the Beta →](https://tally.so/r/J9pNLr)** · **[Chat docs →](https://pasteguard.com/docs/use-cases/chat)**
+
+## Coding Tools
+
+Protect your codebase context and secrets when using AI coding assistants.
+
+**Claude Code:**
 
 ```bash
-# English only (default, smallest image ~1.5GB)
-docker compose build
-
-# English + German
-LANGUAGES=en,de docker compose build
-
-# Multiple languages
-LANGUAGES=en,de,fr,it,es docker compose build
+ANTHROPIC_BASE_URL=http://localhost:3000/anthropic claude
 ```
 
-**Available languages (24):**
-`ca`, `zh`, `hr`, `da`, `nl`, `en`, `fi`, `fr`, `de`, `el`, `it`, `ja`, `ko`, `lt`, `mk`, `nb`, `pl`, `pt`, `ro`, `ru`, `sl`, `es`, `sv`, `uk`
+**Cursor:** Settings → Models → Enable "Override OpenAI Base URL" → `http://localhost:3000/openai/v1`
 
-**Language Fallback Behavior:**
-- Text language is auto-detected for each request
-- If detected language is not installed, falls back to `fallback_language` (default: `en`)
-- Dashboard shows fallback as `FR→EN` when French text is detected but only English is installed
-- Response header `X-LLM-Shield-Language-Fallback: true` indicates fallback was used
+**[Coding Tools docs →](https://pasteguard.com/docs/use-cases/coding-tools)**
 
-Update `config.yaml` to match your installed languages:
+## Dashboard
 
-```yaml
-pii_detection:
-  languages:
-    - en
-    - de
-```
+Every request is logged with masking details. See what was detected, what was masked, and what reached the provider.
 
-See [presidio/languages.yaml](presidio/languages.yaml) for full details including context words.
+<img src="assets/dashboard.png" width="100%" alt="PasteGuard Dashboard">
 
-## Configuration
+[localhost:3000/dashboard](http://localhost:3000/dashboard)
 
-**Mask mode:**
+## What it catches
 
-```yaml
-mode: mask
-providers:
-  upstream:
-    type: openai
-    base_url: https://api.openai.com/v1
-masking:
-  placeholder_format: "<{TYPE}_{N}>"  # Format for masked values
-  show_markers: false                  # Add visual markers to unmasked values
-```
+**Personal data** — Names, emails, phone numbers, credit cards, IBANs, IP addresses, locations. Powered by [Microsoft Presidio](https://microsoft.github.io/presidio/). 24 languages.
 
-**Route mode:**
+**Secrets** — API keys (OpenAI, Anthropic, Stripe, AWS, GitHub), SSH and PEM private keys, JWT tokens, bearer tokens, passwords, connection strings.
 
-```yaml
-mode: route
-providers:
-  upstream:
-    type: openai
-    base_url: https://api.openai.com/v1
-  local:
-    type: ollama
-    base_url: http://localhost:11434
-    model: llama3.2                   # Model for all local requests
-routing:
-  default: upstream
-  on_pii_detected: local
-```
+Both detected and masked in real time, including streaming responses.
 
-**Customize detection:**
+## Tech Stack
 
-```yaml
-pii_detection:
-  score_threshold: 0.7        # Confidence (0.0 - 1.0)
-  entities:                   # What to detect
-    - PERSON
-    - EMAIL_ADDRESS
-    - PHONE_NUMBER
-    - CREDIT_CARD
-    - IBAN_CODE
-```
+[Bun](https://bun.sh) · [Hono](https://hono.dev) · [Microsoft Presidio](https://microsoft.github.io/presidio/) · SQLite
 
-**Logging options:**
+## Contributing
 
-```yaml
-logging:
-  database: ./data/llm-shield.db
-  retention_days: 30           # 0 = keep forever
-  log_content: false           # Log full request/response
-  log_masked_content: true     # Log masked content for dashboard
-```
-
-**Dashboard authentication:**
-
-```yaml
-dashboard:
-  auth:
-    username: admin
-    password: ${DASHBOARD_PASSWORD}
-```
-
-**Environment variables:** Config values support `${VAR}` and `${VAR:-default}` substitution.
-
-See [config.example.yaml](config.example.yaml) for all options.
-
-## API Reference
-
-**Endpoints:**
-
-| Endpoint | Description |
-|----------|-------------|
-| `POST /openai/v1/chat/completions` | Chat API (OpenAI-compatible) |
-| `GET /openai/v1/models` | List models |
-| `GET /dashboard` | Monitoring UI |
-| `GET /dashboard/api/logs` | Request logs (JSON) |
-| `GET /dashboard/api/stats` | Statistics (JSON) |
-| `GET /health` | Health check |
-| `GET /info` | Current configuration |
-
-**Response headers:**
-
-| Header | Value |
-|--------|-------|
-| `X-Request-ID` | Request identifier (forwarded or generated) |
-| `X-LLM-Shield-Mode` | `route` / `mask` |
-| `X-LLM-Shield-PII-Detected` | `true` / `false` |
-| `X-LLM-Shield-PII-Masked` | `true` / `false` (mask mode) |
-| `X-LLM-Shield-Provider` | `upstream` / `local` |
-| `X-LLM-Shield-Language` | Detected language code |
-| `X-LLM-Shield-Language-Fallback` | `true` if fallback was used |
-
-## Development
-
-```bash
-docker compose up presidio-analyzer -d    # Start detection service
-bun run dev                               # Dev server with hot reload
-bun test                                  # Run tests
-bun run check                             # Lint & format
-```
-
-## Benchmarks
-
-PII detection accuracy benchmark with test cases for multiple languages:
-
-```bash
-# Start Presidio with all benchmark languages
-LANGUAGES=en,de,fr,it,es docker compose up presidio-analyzer -d
-
-# Run all tests
-bun run benchmarks/pii-accuracy/run.ts
-
-# Run specific languages only
-bun run benchmarks/pii-accuracy/run.ts --languages de,en
-
-# Verbose output
-bun run benchmarks/pii-accuracy/run.ts --verbose
-```
-
-Test data in `benchmarks/pii-accuracy/test-data/` (one file per language).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute.
 
 ## License
 

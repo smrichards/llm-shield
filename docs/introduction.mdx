@@ -1,0 +1,50 @@
+---
+title: Introduction
+description: AI gets the context. Not your secrets. Open-source privacy proxy for OpenAI, Anthropic, and any AI.
+---
+
+PasteGuard automatically hides names, emails, and API keys before you send prompts to AI. Your data never leaves your machine.
+
+Detects 30+ types of sensitive data across 24 languages.
+
+<Frame>
+  <img className="block dark:hidden" src="/images/comparison-light.png" alt="PasteGuard Comparison" />
+  <img className="hidden dark:block" src="/images/comparison-dark.png" alt="PasteGuard Comparison" />
+</Frame>
+
+## Works Everywhere
+
+<CardGroup cols={2}>
+  <Card title="Chat" icon="comment" href="/use-cases/chat">
+    ChatGPT, Claude, Gemini
+  </Card>
+  <Card title="Apps" icon="table-columns" href="/use-cases/apps">
+    Open WebUI, LibreChat
+  </Card>
+  <Card title="Coding Tools" icon="code" href="/use-cases/coding-tools">
+    Cursor, Claude Code, Copilot, Windsurf
+  </Card>
+  <Card title="API Integration" icon="plug" href="/use-cases/api-integration">
+    OpenAI SDK, Anthropic SDK, LangChain
+  </Card>
+</CardGroup>
+
+## Two Privacy Modes
+
+| Mode | How it works |
+|------|--------------|
+| **Mask** | Replace PII with placeholders, send to OpenAI or Anthropic, restore in response |
+| **Route** | PII requests stay on your local LLM (Ollama, vLLM, llama.cpp), others go to OpenAI or Anthropic |
+
+PasteGuard runs on your servers. Personal data never leaves your infrastructure, and the LLM provider never sees real names, emails, or secrets.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run PasteGuard as a local proxy
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Customize detection and providers
+  </Card>
+</CardGroup>

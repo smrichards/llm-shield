@@ -12,8 +12,8 @@ describe("GET /info", () => {
     expect(res.status).toBe(200);
 
     const body = (await res.json()) as Record<string, unknown>;
-    expect(body.name).toBe("LLM-Shield");
-    expect(body.version).toBe("0.1.0");
+    expect(body.name).toBe("PasteGuard");
+    expect(body.version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(body.mode).toBeDefined();
     expect(body.providers).toBeDefined();
     expect(body.pii_detection).toBeDefined();

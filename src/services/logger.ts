@@ -6,7 +6,7 @@ export interface RequestLog {
   id?: number;
   timestamp: string;
   mode: "route" | "mask";
-  provider: "upstream" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   pii_detected: boolean;
   entities: string;
@@ -19,6 +19,10 @@ export interface RequestLog {
   language_fallback: boolean;
   detected_language: string | null;
   masked_content: string | null;
+  secrets_detected: number | null;
+  secrets_types: string | null;
+  status_code: number | null;
+  error_message: string | null;
 }
 
 /**
@@ -28,8 +32,9 @@ export interface Stats {
   total_requests: number;
   pii_requests: number;
   pii_percentage: number;
-  upstream_requests: number;
+  proxy_requests: number;
   local_requests: number;
+  api_requests: number;
   avg_scan_time_ms: number;
   total_tokens: number;
   requests_last_hour: number;
@@ -76,9 +81,24 @@ export class Logger {
         language_fallback INTEGER NOT NULL DEFAULT 0,
         detected_language TEXT,
         masked_content TEXT,
+        secrets_detected INTEGER,
+        secrets_types TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migrate existing databases: add missing columns
+    const columns = this.db.prepare("PRAGMA table_info(request_logs)").all() as Array<{
+      name: string;
+    }>;
+    if (!columns.find((c) => c.name === "secrets_detected")) {
+      this.db.run("ALTER TABLE request_logs ADD COLUMN secrets_detected INTEGER");
+      this.db.run("ALTER TABLE request_logs ADD COLUMN secrets_types TEXT");
+    }
+    if (!columns.find((c) => c.name === "status_code")) {
+      this.db.run("ALTER TABLE request_logs ADD COLUMN status_code INTEGER");
+      this.db.run("ALTER TABLE request_logs ADD COLUMN error_message TEXT");
+    }
 
     // Create indexes for performance
     this.db.run(`
@@ -95,9 +115,9 @@ export class Logger {
   log(entry: Omit<RequestLog, "id">): void {
     const stmt = this.db.prepare(`
       INSERT INTO request_logs
-        (timestamp, mode, provider, model, pii_detected, entities, latency_ms, scan_time_ms, prompt_tokens, completion_tokens, user_agent, language, language_fallback, detected_language, masked_content)
+        (timestamp, mode, provider, model, pii_detected, entities, latency_ms, scan_time_ms, prompt_tokens, completion_tokens, user_agent, language, language_fallback, detected_language, masked_content, secrets_detected, secrets_types, status_code, error_message)
       VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -116,6 +136,10 @@ export class Logger {
       entry.language_fallback ? 1 : 0,
       entry.detected_language,
       entry.masked_content,
+      entry.secrets_detected ?? null,
+      entry.secrets_types ?? null,
+      entry.status_code ?? null,
+      entry.error_message ?? null,
     );
   }
 
@@ -146,12 +170,17 @@ export class Logger {
       .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE pii_detected = 1`)
       .get() as { count: number };
 
-    // Upstream vs Local
-    const upstreamResult = this.db
-      .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'upstream'`)
+    // Proxy (OpenAI + Anthropic) vs Local vs API
+    const proxyResult = this.db
+      .prepare(
+        `SELECT COUNT(*) as count FROM request_logs WHERE provider IN ('openai', 'anthropic')`,
+      )
       .get() as { count: number };
     const localResult = this.db
       .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'local'`)
+      .get() as { count: number };
+    const apiResult = this.db
+      .prepare(`SELECT COUNT(*) as count FROM request_logs WHERE provider = 'api'`)
       .get() as { count: number };
 
     // Average scan time
@@ -183,8 +212,9 @@ export class Logger {
       total_requests: total,
       pii_requests: pii,
       pii_percentage: total > 0 ? Math.round((pii / total) * 100 * 10) / 10 : 0,
-      upstream_requests: upstreamResult.count,
+      proxy_requests: proxyResult.count,
       local_requests: localResult.count,
+      api_requests: apiResult.count,
       avg_scan_time_ms: Math.round(scanTimeResult.avg || 0),
       total_tokens: tokensResult.total,
       requests_last_hour: hourResult.count,
@@ -259,7 +289,7 @@ export function getLogger(): Logger {
 export interface RequestLogData {
   timestamp: string;
   mode: "route" | "mask";
-  provider: "upstream" | "local";
+  provider: "openai" | "anthropic" | "local" | "api";
   model: string;
   piiDetected: boolean;
   entities: string[];
@@ -271,11 +301,25 @@ export interface RequestLogData {
   languageFallback: boolean;
   detectedLanguage?: string;
   maskedContent?: string;
+  secretsDetected?: boolean;
+  secretsTypes?: string[];
+  statusCode?: number;
+  errorMessage?: string;
 }
 
 export function logRequest(data: RequestLogData, userAgent: string | null): void {
   try {
+    const config = getConfig();
     const logger = getLogger();
+
+    // Safety: Never log content if secrets were detected
+    // Even if log_content is true, secrets are never logged
+    const shouldLogContent = data.maskedContent && !data.secretsDetected;
+
+    // Only log secret types if configured to do so
+    const shouldLogSecretTypes =
+      config.secrets_detection.log_detected_types && data.secretsTypes?.length;
+
     logger.log({
       timestamp: data.timestamp,
       mode: data.mode,
@@ -291,7 +335,11 @@ export function logRequest(data: RequestLogData, userAgent: string | null): void
       language: data.language,
       language_fallback: data.languageFallback,
       detected_language: data.detectedLanguage ?? null,
-      masked_content: data.maskedContent ?? null,
+      masked_content: shouldLogContent ? (data.maskedContent ?? null) : null,
+      secrets_detected: data.secretsDetected !== undefined ? (data.secretsDetected ? 1 : 0) : null,
+      secrets_types: shouldLogSecretTypes ? data.secretsTypes!.join(",") : null,
+      status_code: data.statusCode ?? null,
+      error_message: data.errorMessage ?? null,
     });
   } catch (error) {
     console.error("Failed to log request:", error);
