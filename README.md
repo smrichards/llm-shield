@@ -1,3 +1,5 @@
+NOTE: my modifications were just vibecoded to allow image/file/data to pass through LLM-Shield.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/wordmark-dark.svg">
